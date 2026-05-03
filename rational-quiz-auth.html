@@ -459,9 +459,11 @@
     onAuthStateChanged(auth, async (user) => {
         if (user && checkDomain(user.email)) {
             currentUser = user;
-            // 사용자 정보 표시
+            // 사용자 정보 표시: 홍길동(끝3자)
+            const hint = getEmailHint(user.email);
+            const displayLabel = formatDisplayName(user.displayName, hint);
             document.getElementById('user-info-area').style.display = 'block';
-            document.getElementById('user-name').innerText = user.displayName || user.email;
+            document.getElementById('user-name').innerText = displayLabel;
             document.getElementById('user-photo').src = user.photoURL || '';
             // 화면 전환
             document.getElementById('start-screen').style.display = 'none';
@@ -478,6 +480,20 @@
             document.getElementById('result-screen').style.display = 'none';
         }
     });
+
+    // 이메일 아이디에서 식별용 앞 5글자 추출
+    // 예: 25hong.gd@snu-g.ms.kr → "25hon" / 25kim001@snu-g.ms.kr → "25kim"
+    const getEmailHint = (email) => {
+        if (!email) return '';
+        const id = email.split('@')[0];
+        return id.slice(0, 5);
+    };
+
+    // 표시용 이름: 홍길동(끝3자)
+    const formatDisplayName = (name, hint) => {
+        if (!hint) return name || '?';
+        return `${name || '?'}(${hint})`;
+    };
 
     const formatYMD = (ts) => {
         if (!ts) return '-';
@@ -589,7 +605,7 @@
 
             const newData = {
                 name: currentUser.displayName || currentUser.email.split('@')[0],
-                email: currentUser.email,
+                emailHint: getEmailHint(currentUser.email), // 식별용 끝 3글자만 (전체 이메일 저장 안 함)
                 photoURL: currentUser.photoURL || '',
                 score: Math.max(prevBest, state.score), // 최고점만 유지
                 lastScore: state.score,
@@ -635,42 +651,62 @@
     };
 
     // ============ Firebase 랭킹 표시 ============
-    onValue(query(ref(db, 'rankings'), orderByChild('score'), limitToLast(10)), (s) => {
-        const data = s.val(); 
-        if (!data) {
-            document.getElementById('top-10-list').innerHTML = "<div style='text-align:center; padding:10px;'>기록 없음</div>";
-            return;
+    // 페이지 로드 직후 즉시 등록 (로그인 여부와 무관)
+    onValue(
+        query(ref(db, 'rankings'), orderByChild('score'), limitToLast(10)),
+        (s) => {
+            const data = s.val();
+            if (!data) {
+                document.getElementById('top-10-list').innerHTML = "<div style='text-align:center; padding:10px; color:#999;'>아직 기록이 없습니다</div>";
+                return;
+            }
+            const list = Object.values(data).sort((a,b) => (b.score||0) - (a.score||0));
+            document.getElementById('top-10-list').innerHTML = list.map((p,i)=>
+                `<div class="rank-item">
+                    <span>${i+1}. <b>${formatDisplayName(p.name, p.emailHint)}</b></span>
+                    <span class="score-val">${p.score||0}<div class="plays">${p.playCount||1}회</div></span>
+                </div>`
+            ).join('');
+        },
+        (error) => {
+            console.error('역대 랭킹 로드 실패:', error);
+            document.getElementById('top-10-list').innerHTML = 
+                "<div style='text-align:center; padding:10px; color:var(--danger); font-size:0.7rem;'>로드 실패<br>(" + error.code + ")</div>";
         }
-        const list = Object.values(data).sort((a,b) => (b.score||0) - (a.score||0));
-        document.getElementById('top-10-list').innerHTML = list.map((p,i)=>
-            `<div class="rank-item">
-                <span>${i+1}. <b>${p.name||'?'}</b></span>
-                <span class="score-val">${p.score||0}<div class="plays">${p.playCount||1}회</div></span>
-            </div>`
-        ).join('');
-    });
+    );
 
     const updateRecentRanking = () => {
         const oneHourAgo = Date.now() - 3600000;
-        onValue(query(ref(db, 'rankings'), orderByChild('timestamp'), startAt(oneHourAgo)), (s) => {
-            const data = s.val(); 
-            if (!data) {
-                document.getElementById('recent-top-10').innerHTML = "<div style='text-align:center; padding:10px;'>기록 없음</div>";
-                recentScoresCache = []; return;
+        onValue(
+            query(ref(db, 'rankings'), orderByChild('timestamp'), startAt(oneHourAgo)),
+            (s) => {
+                const data = s.val();
+                if (!data) {
+                    document.getElementById('recent-top-10').innerHTML = "<div style='text-align:center; padding:10px; color:#999;'>최근 1시간 기록 없음</div>";
+                    recentScoresCache = []; return;
+                }
+                const list = Object.values(data)
+                    .filter(p => p.timestamp >= oneHourAgo)
+                    .sort((a,b) => (b.lastScore||b.score||0) - (a.lastScore||a.score||0));
+                const top10 = list.slice(0, 10);
+                recentScoresCache = top10.map(p => p.lastScore || p.score || 0);
+                if (top10.length === 0) {
+                    document.getElementById('recent-top-10').innerHTML = "<div style='text-align:center; padding:10px; color:#999;'>최근 1시간 기록 없음</div>";
+                    return;
+                }
+                document.getElementById('recent-top-10').innerHTML = top10.map((p,i)=>
+                    `<div class="rank-item">
+                        <span>${i+1}. <b>${formatDisplayName(p.name, p.emailHint)}</b></span>
+                        <span class="score-val">${p.lastScore||p.score||0}</span>
+                    </div>`
+                ).join('');
+            },
+            (error) => {
+                console.error('최근 랭킹 로드 실패:', error);
+                document.getElementById('recent-top-10').innerHTML = 
+                    "<div style='text-align:center; padding:10px; color:var(--danger); font-size:0.7rem;'>로드 실패<br>(" + error.code + ")</div>";
             }
-            // 최근 1시간 내 플레이한 사용자만 + 최근 점수(lastScore) 기준 정렬
-            const list = Object.values(data)
-                .filter(p => p.timestamp >= oneHourAgo)
-                .sort((a,b) => (b.lastScore||b.score||0) - (a.lastScore||a.score||0));
-            const top10 = list.slice(0, 10);
-            recentScoresCache = top10.map(p => p.lastScore || p.score || 0);
-            document.getElementById('recent-top-10').innerHTML = top10.map((p,i)=>
-                `<div class="rank-item">
-                    <span>${i+1}. <b>${p.name||'?'}</b></span>
-                    <span class="score-val">${p.lastScore||p.score||0}</span>
-                </div>`
-            ).join('');
-        });
+        );
     };
     updateRecentRanking();
 
