@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>유리수 연산 마스터 (Verified 12Lv + Auth)</title>
+    <style>
+        :root { --primary: #4a90e2; --success: #2ecc71; --danger: #e74c3c; --dark: #2c3e50; --accent: #f39c12; }
+        body { 
+            font-family: 'Pretendard', sans-serif; background: #f0f2f5; 
+            display: flex; justify-content: center; align-items: flex-start; 
+            min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; gap: 10px; 
+        }
+        @media (max-width: 1000px) {
+            body { 
+                flex-direction: column; align-items: center; 
+                padding: 10px; gap: 10px;
+            }
+            .rank-sidebar { 
+                width: 100% !important; max-width: 500px; 
+                height: auto !important; position: static !important; 
+            }
+            .rank-box { max-height: 200px; }
+            #game-container { width: 100%; max-width: 500px; }
+        }
+        #orientation-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--dark); color: white; z-index: 9999;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        @media screen and (orientation: portrait) { #orientation-overlay { display: flex; } }
+        .rank-sidebar { width: 180px; height: calc(100vh - 40px); display: flex; flex-direction: column; position: sticky; top: 20px; flex-shrink: 0; }
+        .rank-box { 
+            background: white; padding: 12px; border-radius: 12px; border: 1px solid #eee;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 100%; overflow: hidden;
+        }
+        .rank-box h3 { margin: 0 0 10px 0; font-size: 0.85rem; color: var(--dark); border-bottom: 2px solid var(--primary); padding-bottom: 6px; text-align: center; }
+        .scroll-list { overflow-y: auto; flex-grow: 1; font-size: 0.75rem; }
+        .rank-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f9f9f9; gap: 5px; }
+        .rank-item b { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rank-item .plays { font-size: 0.65rem; color: #999; }
+        .score-val { color: var(--primary); font-weight: bold; flex-shrink: 0; }
+        #game-container { 
+            background: white; padding: 1.5rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            flex: 1; max-width: 500px; text-align: center; position: relative; min-height: 520px;
+        }
+        .stats { display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 0.9rem; }
+        #problem { font-size: 1.5rem; margin: 30px 0; min-height: 120px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; color: var(--dark); line-height: 1.8; }
+        .frac { display: inline-flex; flex-direction: column; vertical-align: middle; align-items: center; font-size: 1.1rem; line-height: 1.1; margin: 0 2px; }
+        .frac .num { border-bottom: 2px solid var(--dark); padding: 0 3px; }
+        .paren-frac { display: inline-flex; align-items: center; vertical-align: middle; }
+        .paren-frac .big-paren { font-size: 2rem; font-weight: 300; line-height: 1; }
+        .exp-group { display: inline-flex; align-items: center; vertical-align: middle; }
+        .exp-bracket { font-size: 1.8rem; font-weight: 300; line-height: 1; }
+        .exp-group sup { font-size: 0.9rem; color: var(--accent); position: relative; top: -12px; margin-left: 2px; }
+        .input-area { display: flex; gap: 8px; justify-content: center; }
+        input { padding: 10px; font-size: 1.1rem; width: 120px; border: 2px solid #ddd; border-radius: 10px; text-align: center; outline: none; }
+        button { padding: 10px 20px; font-size: 1rem; cursor: pointer; border: none; border-radius: 10px; background: var(--primary); color: white; font-weight: bold; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #result-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; border-radius: 20px; flex-direction: column; justify-content: center; align-items: center; z-index: 100; padding: 20px; }
+        /* 인증/사용자 정보 영역 */
+        .user-info { 
+            display: flex; align-items: center; justify-content: space-between; gap: 8px; 
+            font-size: 0.85rem; color: var(--dark); margin-bottom: 10px; 
+            padding: 6px 10px; background: #f8f9fa; border-radius: 8px;
+        }
+        .user-info img { width: 24px; height: 24px; border-radius: 50%; }
+        .user-info .logout { 
+            font-size: 0.7rem; color: #999; cursor: pointer; 
+            background: none; padding: 2px 6px; border: 1px solid #ddd; color: #666;
+        }
+        .user-info .name-block { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .user-info .name-block span { 
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px; 
+        }
+        .user-info .stats-block { 
+            display: flex; align-items: center; gap: 12px; 
+            font-size: 0.78rem; color: #555; flex-shrink: 0;
+        }
+        .user-info .stats-block .label { color: #999; margin-right: 3px; }
+        .user-info .stats-block .best-score { color: var(--primary); font-weight: bold; }
+        .user-info .stats-block .best-date { color: #888; font-variant-numeric: tabular-nums; }
+        #login-btn { 
+            background: white; color: #444; border: 1px solid #dadce0; 
+            padding: 12px 24px; display: inline-flex; align-items: center; gap: 10px;
+            font-size: 0.95rem;
+        }
+        #login-btn img { width: 18px; height: 18px; }
+        .auth-error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; }
+        .save-status { font-size: 0.85rem; margin-top: 12px; min-height: 1.2em; }
+    </style>
+</head>
+<body>
+
+<div id="orientation-overlay">
+    <div style="font-size: 50px;">🔄</div>
+    <h2 style="margin: 20px 0;">가로 모드 전용 게임입니다</h2>
+    <p>원활한 플레이를 위해 기기를 가로로 돌려주세요!</p>
+</div>
+
+<div class="rank-sidebar">
+    <div class="rank-box">
+        <h3>🏆 역대 TOP 10</h3>
+        <div id="top-10-list" class="scroll-list">로드 중...</div>
+    </div>
+</div>
+
+<div id="game-container">
+    <div id="result-screen">
+        <h2 style="color: var(--danger);">GAME OVER</h2>
+        <p>최종 점수: <span id="final-score-val" style="color: var(--primary); font-weight: bold;">0</span></p>
+        <div id="save-status" class="save-status"></div>
+        <button id="retry-btn" style="background: var(--dark); width: 160px; margin-top: 15px;">다시 시작</button>
+    </div>
+
+    <!-- 사용자 정보 영역 (로그인 후 표시, 모든 화면에서 동일) -->
+    <div id="user-info-area" style="display: none;">
+        <div class="user-info">
+            <div class="name-block">
+                <img id="user-photo" src="" alt="">
+                <span id="user-name">-</span>
+            </div>
+            <div class="stats-block">
+                <span><span class="label">최고</span><span class="best-score" id="hdr-best-score">-</span></span>
+                <span><span class="label">갱신</span><span class="best-date" id="hdr-best-date">-</span></span>
+                <button class="logout" id="logout-btn">로그아웃</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="stats">
+        <div>Lv. <span id="level">1</span></div>
+        <div>❤️ <span id="lives">5</span>/20</div>
+        <div>점수: <span id="score">0</span></div>
+    </div>
+    
+    <!-- 시작/로그인 화면 -->
+    <div id="start-screen">
+        <h2 style="margin-top: 60px;">유리수 연산 마스터</h2>
+        <p style="color: #666; font-size: 0.9rem; margin: 20px 0;">학교 Google 계정으로 로그인하세요</p>
+        <button id="login-btn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
+            Google 계정으로 로그인
+        </button>
+        <div id="auth-error" class="auth-error"></div>
+        <p style="color: #999; font-size: 0.75rem; margin-top: 30px;">학교 도메인 계정만 참여 가능합니다</p>
+    </div>
+
+    <!-- 게임 시작 버튼 (로그인 후) -->
+    <div id="ready-screen" style="display:none;">
+        <h2 style="margin-top: 80px;">준비 완료!</h2>
+        <p id="welcome-msg" style="color: var(--primary); font-size: 1.1rem; margin: 15px 0;"></p>
+        <button id="start-btn" style="padding: 15px 40px;">게임 시작</button>
+        <p style="color: #999; font-size: 0.75rem; margin-top: 20px;">
+            누적 플레이: <span id="my-play-count">-</span>회
+        </p>
+    </div>
+
+    <!-- 실제 게임 플레이 -->
+    <div id="game-play" style="display:none;">
+        <div id="problem">...</div>
+        <div class="input-area">
+            <input type="text" id="answer" placeholder="예: -1/2" autocomplete="off">
+            <button id="main-btn">확인</button>
+        </div>
+        <div id="message" style="margin-top: 10px; font-size: 0.9rem; height: 20px; font-weight: bold;"></div>
+    </div>
+</div>
+
+<div class="rank-sidebar">
+    <div class="rank-box" style="border-color: var(--accent);">
+        <h3 style="border-bottom-color: var(--accent);">🔥 최근 1시간 TOP 10</h3>
+        <div id="recent-top-10" class="scroll-list">로드 중...</div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, get, update, onValue, query, orderByChild, limitToLast, startAt, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAWgx1WvrIdFnCTyGenx7SNrXN3NR8-FDo",
+        authDomain: "rational-quiz.firebaseapp.com",
+        databaseURL: "https://rational-quiz-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "rational-quiz",
+        storageBucket: "rational-quiz.firebasestorage.app",
+        messagingSenderId: "148358095425",
+        appId: "1:148358095425:web:705af2d80ac4922c8b9cc0"
+    };
+
+    // ======== 학교 도메인 설정 ========
+    // 학생/교사 Gmail이 user@snu-g.ms.kr 형태라면 그대로 두고,
+    // 다른 도메인이면 아래 배열만 수정하세요. 여러 도메인 허용 시 ['a.kr','b.kr']
+    const ALLOWED_DOMAINS = ['snu-g.ms.kr'];
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    // 학교 도메인 힌트 (계정 선택 화면에서 학교 계정 우선 표시)
+    provider.setCustomParameters({ hd: ALLOWED_DOMAINS[0] });
+
+    let currentUser = null;
+    let state = { level: 1, lives: 5, score: 0, streak: 0, lifeStreak: 0, currentAnsObj: { n: 0, d: 1 }, isWaitingNext: false, startTime: 0 };
+    let recentScoresCache = [];
+
+    // ============ 수학 유틸 (기존 로직 유지) ============
+    const getGCD = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { a %= b; [a, b] = [b, a]; } return a || 1; };
+    const getLCM = (a, b) => { a = Math.abs(a); b = Math.abs(b); return (a * b) / getGCD(a, b); };
+    const simplify = (n, d) => { const c = getGCD(n, d); let sn = Math.floor(n/c), sd = Math.floor(d/c); if(sd<0){sn*=-1;sd*=-1;} return {n:sn, d:sd}; };
+    const calc = (v1, v2, op) => {
+        let res;
+        if (op === '+') res = { n: v1.n * v2.d + v2.n * v1.d, d: v1.d * v2.d };
+        else if (op === '-') res = { n: v1.n * v2.d - v2.n * v1.d, d: v1.d * v2.d };
+        else if (op === '×') res = { n: v1.n * v2.n, d: v1.d * v2.d };
+        return simplify(res.n, res.d);
+    };
+
+    const evalExpr = (node) => {
+        if (node.type === 'num') return node.val;
+        if (node.type === 'pow') {
+            const b = evalExpr(node.base);
+            return simplify(Math.pow(b.n, node.exp), Math.pow(b.d, node.exp));
+        }
+        if (node.type === 'op') {
+            return calc(evalExpr(node.left), evalExpr(node.right), node.op);
+        }
+    };
+
+    const formatNumHTML = (v, noParen = false) => {
+        let html = "";
+        if (v.d === 1) html = v.n < 0 && !noParen ? `(${v.n})` : `${v.n}`;
+        else {
+            const inner = `<span class="frac"><span class="num">${Math.abs(v.n)}</span><span class="den">${v.d}</span></span>`;
+            html = v.n < 0 ? (noParen ? `-${inner}` : `(-${inner})`) : inner;
+        }
+        return html;
+    };
+
+    const formatPowerHTML = (base, exp) => {
+        let baseHTML;
+        if (base.d === 1) {
+            baseHTML = `<span class="exp-bracket">(</span>${base.n}<span class="exp-bracket">)</span>`;
+        } else {
+            const fracInner = base.n < 0
+                ? `-<span class="frac"><span class="num">${Math.abs(base.n)}</span><span class="den">${base.d}</span></span>`
+                : `<span class="frac"><span class="num">${base.n}</span><span class="den">${base.d}</span></span>`;
+            baseHTML = `<span class="exp-bracket">(</span>${fracInner}<span class="exp-bracket">)</span>`;
+        }
+        return `<span class="exp-group">${baseHTML}<sup>${exp}</sup></span>`;
+    };
+
+    const BRACKETS = [
+        { open: '(', close: ')' },
+        { open: '{', close: '}' },
+        { open: '[', close: ']' }
+    ];
+
+    const treeDepth = (node) => {
+        if (node.type === 'num' || node.type === 'pow') return 0;
+        if (node.type === 'op') return 1 + Math.max(treeDepth(node.left), treeDepth(node.right));
+    };
+
+    const renderWithBrackets = (node) => {
+        const totalDepth = treeDepth(node);
+        const renderRec = (n, currentDepth) => {
+            if (n.type === 'num') return formatNumHTML(n.val);
+            if (n.type === 'pow') return formatPowerHTML(n.base.val, n.exp);
+            if (n.type === 'op') {
+                const leftHTML = renderRec(n.left, currentDepth);
+                const rightHTML = renderRec(n.right, currentDepth);
+                const inner = `${leftHTML} ${n.op} ${rightHTML}`;
+                const opDepth = treeDepth(n);
+                if (opDepth === totalDepth) return inner;
+                const br = BRACKETS[opDepth - 1];
+                return `${br.open}${inner}${br.close}`;
+            }
+        };
+        return renderRec(node, 0);
+    };
+
+    const getInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const getNonZero = (min, max) => { let v = getInt(min, max); return v === 0 ? getNonZero(min, max) : v; };
+
+    const denomPools = [
+        [1, 2, 4], [1, 2, 3], [1, 2, 3, 6], [1, 3, 6],
+        [1, 2, 4, 8], [1, 4, 8], [1, 3, 9], [1, 2, 5], [1, 2, 5, 10],
+        [1, 3, 4], [1, 4, 6], [1, 2, 3, 4], [1, 2, 4, 6], [1, 3, 4, 6],
+        [1, 2, 7], [1, 3, 5], [1, 2, 9], [1, 4, 5], [1, 3, 7],
+        [1, 3, 8], [1, 6, 8], [1, 8, 12], [1, 2, 3, 8], [1, 3, 4, 8]
+    ];
+
+    let currentDenomPool = [1];
+
+    const getValueFromPool = (lv, allowFrac = true) => {
+        if (lv <= 4 || !allowFrac) return { n: getNonZero(-10, 10), d: 1 };
+        const limit = (lv % 2 === 1) ? 7 : 12;
+        const d = currentDenomPool[getInt(0, currentDenomPool.length - 1)];
+        return simplify(getNonZero(-limit, limit), d);
+    };
+
+    const ops = ['+', '-', '×'];
+    const randOp = () => ops[getInt(0, 2)];
+
+    const checkAddSubLCM = (node, MAX_LCM) => {
+        if (node.type === 'num') return true;
+        if (node.type === 'pow') return true;
+        if (node.type === 'op') {
+            if (!checkAddSubLCM(node.left, MAX_LCM)) return false;
+            if (!checkAddSubLCM(node.right, MAX_LCM)) return false;
+            if (node.op === '+' || node.op === '-') {
+                const lv = evalExpr(node.left);
+                const rv = evalExpr(node.right);
+                const lcmD = getLCM(lv.d, rv.d);
+                if (lcmD > MAX_LCM) return false;
+            }
+            return true;
+        }
+        return true;
+    };
+
+    const generateProblem = (lv) => {
+        const MAX_LCM = 24;
+        for (let attempt = 0; attempt < 50; attempt++) {
+            const tree = buildProblemTree(lv);
+            if (checkAddSubLCM(tree, MAX_LCM)) {
+                return { question: renderWithBrackets(tree), ansObj: evalExpr(tree) };
+            }
+        }
+        const tree = buildProblemTree(lv);
+        return { question: renderWithBrackets(tree), ansObj: evalExpr(tree) };
+    };
+
+    const buildProblemTree = (lv) => {
+        if (lv > 4) {
+            currentDenomPool = denomPools[getInt(0, denomPools.length - 1)];
+        } else {
+            currentDenomPool = [1];
+        }
+
+        let tree;
+
+        if (lv === 1 || lv === 5 || lv === 6) {
+            const v1 = getValueFromPool(lv);
+            const v2 = getValueFromPool(lv);
+            tree = {
+                type: 'op', op: randOp(),
+                left: { type: 'num', val: v1 },
+                right: { type: 'num', val: v2 }
+            };
+        }
+        else if (lv === 2 || lv === 7 || lv === 8) {
+            const v1 = getValueFromPool(lv);
+            const v2 = getValueFromPool(lv);
+            const v3 = getValueFromPool(lv);
+            tree = {
+                type: 'op', op: randOp(),
+                left: {
+                    type: 'op', op: randOp(),
+                    left: { type: 'num', val: v1 },
+                    right: { type: 'num', val: v2 }
+                },
+                right: { type: 'num', val: v3 }
+            };
+        }
+        else if (lv === 3 || lv === 9 || lv === 10) {
+            const v1 = getValueFromPool(lv);
+            const v2 = getValueFromPool(lv);
+            const v3 = getValueFromPool(lv);
+            const v4 = getValueFromPool(lv);
+            tree = {
+                type: 'op', op: randOp(),
+                left: {
+                    type: 'op', op: randOp(),
+                    left: {
+                        type: 'op', op: randOp(),
+                        left: { type: 'num', val: v1 },
+                        right: { type: 'num', val: v2 }
+                    },
+                    right: { type: 'num', val: v3 }
+                },
+                right: { type: 'num', val: v4 }
+            };
+        }
+        else {
+            const exp = getInt(2, 3);
+            let base;
+            if (lv === 4) {
+                base = { n: getNonZero(-3, 3), d: 1 };
+            } else {
+                const d = currentDenomPool[getInt(0, currentDenomPool.length - 1)];
+                base = simplify(getNonZero(-3, 3), d);
+            }
+
+            const v1 = getValueFromPool(lv);
+            const v2 = getValueFromPool(lv);
+            const v3 = getValueFromPool(lv);
+
+            const powNode = { type: 'pow', base: { type: 'num', val: base }, exp: exp };
+            tree = {
+                type: 'op', op: randOp(),
+                left: {
+                    type: 'op', op: randOp(),
+                    left: {
+                        type: 'op', op: randOp(),
+                        left: powNode,
+                        right: { type: 'num', val: v1 }
+                    },
+                    right: { type: 'num', val: v2 }
+                },
+                right: { type: 'num', val: v3 }
+            };
+        }
+
+        return tree;
+    };
+
+    // ============ 인증 로직 ============
+    const showError = (msg) => {
+        document.getElementById('auth-error').innerText = msg;
+    };
+
+    const checkDomain = (email) => {
+        if (!email) return false;
+        const domain = email.split('@')[1];
+        return ALLOWED_DOMAINS.includes(domain);
+    };
+
+    document.getElementById('login-btn').onclick = async () => {
+        showError('');
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            if (!checkDomain(user.email)) {
+                // 학교 도메인이 아니면 즉시 로그아웃
+                await signOut(auth);
+                showError(`학교 계정(@${ALLOWED_DOMAINS.join(', @')})만 사용할 수 있습니다.\n사용한 계정: ${user.email}`);
+                return;
+            }
+            // onAuthStateChanged가 나머지 처리
+        } catch (e) {
+            console.error(e);
+            if (e.code === 'auth/popup-closed-by-user') {
+                showError('로그인이 취소되었습니다.');
+            } else if (e.code === 'auth/popup-blocked') {
+                showError('팝업이 차단되었습니다. 브라우저 설정을 확인하세요.');
+            } else {
+                showError('로그인 실패: ' + e.message);
+            }
+        }
+    };
+
+    document.getElementById('logout-btn').onclick = async () => {
+        await signOut(auth);
+    };
+
+    // 인증 상태 변화 감지
+    onAuthStateChanged(auth, async (user) => {
+        if (user && checkDomain(user.email)) {
+            currentUser = user;
+            // 사용자 정보 표시
+            document.getElementById('user-info-area').style.display = 'block';
+            document.getElementById('user-name').innerText = user.displayName || user.email;
+            document.getElementById('user-photo').src = user.photoURL || '';
+            // 화면 전환
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('ready-screen').style.display = 'block';
+            document.getElementById('welcome-msg').innerText = `${user.displayName}님, 환영합니다!`;
+            // 사용자 통계 로드
+            await loadUserStats();
+        } else {
+            currentUser = null;
+            document.getElementById('user-info-area').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'block';
+            document.getElementById('ready-screen').style.display = 'none';
+            document.getElementById('game-play').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'none';
+        }
+    });
+
+    const formatYMD = (ts) => {
+        if (!ts) return '-';
+        const d = new Date(ts);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    const loadUserStats = async () => {
+        if (!currentUser) return;
+        const hdrScore = document.getElementById('hdr-best-score');
+        const hdrDate = document.getElementById('hdr-best-date');
+        try {
+            const snap = await get(ref(db, 'rankings/' + currentUser.uid));
+            if (snap.exists()) {
+                const data = snap.val();
+                const best = data.score || 0;
+                // bestAt이 없으면 timestamp로 fallback (구버전 데이터 호환)
+                const bestTime = data.bestAt || data.timestamp || null;
+                document.getElementById('my-play-count').innerText = data.playCount || 0;
+                hdrScore.innerText = best;
+                hdrDate.innerText = formatYMD(bestTime);
+            } else {
+                document.getElementById('my-play-count').innerText = '0';
+                hdrScore.innerText = '0';
+                hdrDate.innerText = '-';
+            }
+        } catch (e) {
+            console.error('통계 로드 실패:', e);
+            hdrScore.innerText = '?';
+            hdrDate.innerText = '-';
+        }
+    };
+
+    // ============ 게임 로직 ============
+    const resetGame = () => {
+        state = { level: 1, lives: 5, score: 0, streak: 0, lifeStreak: 0, currentAnsObj: { n: 0, d: 1 }, isWaitingNext: false, startTime: 0 };
+        updateStats();
+        document.getElementById('result-screen').style.display = 'none';
+        document.getElementById('ready-screen').style.display = 'none';
+        document.getElementById('game-play').style.display = 'block';
+        nextProblem();
+    };
+
+    const nextProblem = () => {
+        state.isWaitingNext = false;
+        document.getElementById('main-btn').innerText = "확인";
+        document.getElementById('answer').disabled = false;
+        document.getElementById('answer').value = "";
+        document.getElementById('message').innerText = "";
+        const p = generateProblem(state.level);
+        state.currentAnsObj = p.ansObj;
+        document.getElementById('problem').innerHTML = p.question + " = ?";
+        state.startTime = Date.now();
+        document.getElementById('answer').focus();
+    };
+
+    const checkAnswer = () => {
+        const input = document.getElementById('answer').value.trim().replace(/\s/g, '');
+        if (!input) return;
+        let uN, uD;
+        if (input.includes('/')) { 
+            const pts = input.split('/'); 
+            uN = parseInt(pts[0]); uD = parseInt(pts[1]); 
+        } else { 
+            uN = parseInt(input); uD = 1; 
+        }
+        
+        const isCorrect = !isNaN(uN) && !isNaN(uD) && uD !== 0 && (uN * state.currentAnsObj.d === uD * state.currentAnsObj.n);
+        
+        if (isCorrect) {
+            const timeTaken = (Date.now() - state.startTime) / 1000;
+            let point = (state.level * 10) * (1 + Math.floor(state.streak / 10) * 0.1);
+            if (timeTaken <= state.level * 5) point *= 1.2;
+            state.score += Math.round(point);
+            state.streak++; state.lifeStreak++;
+            if (state.lifeStreak >= 3) { if (state.lives < 20) state.lives++; state.lifeStreak = 0; }
+            if (state.streak % 5 === 0 && state.level < 12) state.level++;
+            document.getElementById('message').innerHTML = "<span style='color:var(--success)'>정답! ✨</span>";
+        } else {
+            state.lives -= state.level;
+            state.streak = 0; state.lifeStreak = 0;
+            const ansStr = state.currentAnsObj.d === 1 ? state.currentAnsObj.n : state.currentAnsObj.n + '/' + state.currentAnsObj.d;
+            document.getElementById('message').innerHTML = `<span style='color:var(--danger)'>오답! (정답: ${ansStr})</span>`;
+            if (state.lives <= 0) { showGameOver(); return; }
+        }
+        state.isWaitingNext = true;
+        document.getElementById('main-btn').innerText = "다음 문제";
+        updateStats();
+    };
+
+    // ============ 점수 자동 저장 (UID 기반 최고점 + 플레이 횟수) ============
+    const saveScore = async () => {
+        if (!currentUser) return;
+        const statusEl = document.getElementById('save-status');
+        statusEl.innerHTML = "<span style='color:#999'>저장 중...</span>";
+        try {
+            const userRef = ref(db, 'rankings/' + currentUser.uid);
+            const snap = await get(userRef);
+            const existing = snap.exists() ? snap.val() : null;
+            const prevBest = existing ? (existing.score || 0) : 0;
+            const prevCount = existing ? (existing.playCount || 0) : 0;
+            const prevBestAt = existing ? (existing.bestAt || existing.timestamp || null) : null;
+
+            const isNewRecord = state.score > prevBest;
+            const now = Date.now();
+
+            const newData = {
+                name: currentUser.displayName || currentUser.email.split('@')[0],
+                email: currentUser.email,
+                photoURL: currentUser.photoURL || '',
+                score: Math.max(prevBest, state.score), // 최고점만 유지
+                lastScore: state.score,
+                level: state.level,
+                playCount: prevCount + 1,
+                // 신기록일 때만 bestAt 갱신, 아니면 기존 값 유지
+                bestAt: isNewRecord ? now : (prevBestAt || now),
+                timestamp: now // 최근 1시간 랭킹용 (이번 플레이 시각)
+            };
+
+            await set(userRef, newData);
+
+            // 헤더의 최고점·날짜도 즉시 갱신
+            document.getElementById('hdr-best-score').innerText = newData.score;
+            document.getElementById('hdr-best-date').innerText = formatYMD(newData.bestAt);
+
+            if (isNewRecord) {
+                statusEl.innerHTML = `<span style='color:var(--success)'>🎉 신기록 달성! (이전 최고: ${prevBest})</span>`;
+            } else {
+                statusEl.innerHTML = `<span style='color:#666'>저장 완료 · 내 최고점: ${prevBest}</span>`;
+            }
+        } catch (e) {
+            console.error('저장 실패:', e);
+            statusEl.innerHTML = "<span style='color:var(--danger)'>저장 실패: " + e.message + "</span>";
+        }
+    };
+
+    const showGameOver = async () => {
+        document.getElementById('final-score-val').innerText = state.score;
+        document.getElementById('result-screen').style.display = 'flex';
+        // 자동 저장
+        if (state.score > 0) {
+            await saveScore();
+        } else {
+            document.getElementById('save-status').innerHTML = "<span style='color:#999'>점수가 0이라 저장하지 않았습니다.</span>";
+        }
+    };
+
+    const updateStats = () => {
+        document.getElementById('level').innerText = state.level;
+        document.getElementById('lives').innerText = state.lives;
+        document.getElementById('score').innerText = state.score;
+    };
+
+    // ============ Firebase 랭킹 표시 ============
+    onValue(query(ref(db, 'rankings'), orderByChild('score'), limitToLast(10)), (s) => {
+        const data = s.val(); 
+        if (!data) {
+            document.getElementById('top-10-list').innerHTML = "<div style='text-align:center; padding:10px;'>기록 없음</div>";
+            return;
+        }
+        const list = Object.values(data).sort((a,b) => (b.score||0) - (a.score||0));
+        document.getElementById('top-10-list').innerHTML = list.map((p,i)=>
+            `<div class="rank-item">
+                <span>${i+1}. <b>${p.name||'?'}</b></span>
+                <span class="score-val">${p.score||0}<div class="plays">${p.playCount||1}회</div></span>
+            </div>`
+        ).join('');
+    });
+
+    const updateRecentRanking = () => {
+        const oneHourAgo = Date.now() - 3600000;
+        onValue(query(ref(db, 'rankings'), orderByChild('timestamp'), startAt(oneHourAgo)), (s) => {
+            const data = s.val(); 
+            if (!data) {
+                document.getElementById('recent-top-10').innerHTML = "<div style='text-align:center; padding:10px;'>기록 없음</div>";
+                recentScoresCache = []; return;
+            }
+            // 최근 1시간 내 플레이한 사용자만 + 최근 점수(lastScore) 기준 정렬
+            const list = Object.values(data)
+                .filter(p => p.timestamp >= oneHourAgo)
+                .sort((a,b) => (b.lastScore||b.score||0) - (a.lastScore||a.score||0));
+            const top10 = list.slice(0, 10);
+            recentScoresCache = top10.map(p => p.lastScore || p.score || 0);
+            document.getElementById('recent-top-10').innerHTML = top10.map((p,i)=>
+                `<div class="rank-item">
+                    <span>${i+1}. <b>${p.name||'?'}</b></span>
+                    <span class="score-val">${p.lastScore||p.score||0}</span>
+                </div>`
+            ).join('');
+        });
+    };
+    updateRecentRanking();
+
+    // ============ 이벤트 핸들러 ============
+    document.getElementById('start-btn').onclick = () => {
+        if (!currentUser) return;
+        resetGame();
+    };
+    document.getElementById('main-btn').onclick = () => { 
+        if (!state.isWaitingNext) checkAnswer(); 
+        else nextProblem(); 
+    };
+    document.getElementById('retry-btn').onclick = async () => {
+        // 다시 시작 시 통계 새로고침 후 ready 화면으로
+        await loadUserStats();
+        document.getElementById('result-screen').style.display = 'none';
+        document.getElementById('game-play').style.display = 'none';
+        document.getElementById('ready-screen').style.display = 'block';
+    };
+    window.onkeydown = (e) => { 
+        if (e.key === 'Enter' && document.getElementById('game-play').style.display === 'block') { 
+            if (!state.isWaitingNext) checkAnswer(); else nextProblem(); 
+        } 
+    };
+</script>
+</body>
+</html>
