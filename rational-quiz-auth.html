@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>유리수 연산 마스터 (Verified 12Lv + Auth)</title>
+    <title>유리수 연산 마스터</title>
     <style>
         :root { --primary: #4a90e2; --success: #2ecc71; --danger: #e74c3c; --dark: #2c3e50; --accent: #f39c12; }
         body { 
@@ -294,8 +294,9 @@
     let currentDenomPool = [1];
 
     const getValueFromPool = (lv, allowFrac = true) => {
+        // lv 1~4: 정수만, lv 5~8: 분수
         if (lv <= 4 || !allowFrac) return { n: getNonZero(-10, 10), d: 1 };
-        const limit = (lv % 2 === 1) ? 7 : 12;
+        const limit = 12;
         const d = currentDenomPool[getInt(0, currentDenomPool.length - 1)];
         return simplify(getNonZero(-limit, limit), d);
     };
@@ -341,7 +342,8 @@
 
         let tree;
 
-        if (lv === 1 || lv === 5 || lv === 6) {
+        if (lv === 1 || lv === 5) {
+            // 두 수 연산 (lv1=정수, lv5=분수)
             const v1 = getValueFromPool(lv);
             const v2 = getValueFromPool(lv);
             tree = {
@@ -350,7 +352,8 @@
                 right: { type: 'num', val: v2 }
             };
         }
-        else if (lv === 2 || lv === 7 || lv === 8) {
+        else if (lv === 2 || lv === 6) {
+            // 세 수 연산 (lv2=정수, lv6=분수)
             const v1 = getValueFromPool(lv);
             const v2 = getValueFromPool(lv);
             const v3 = getValueFromPool(lv);
@@ -364,7 +367,8 @@
                 right: { type: 'num', val: v3 }
             };
         }
-        else if (lv === 3 || lv === 9 || lv === 10) {
+        else if (lv === 3 || lv === 7) {
+            // 네 수 연산 (lv3=정수, lv7=분수)
             const v1 = getValueFromPool(lv);
             const v2 = getValueFromPool(lv);
             const v3 = getValueFromPool(lv);
@@ -384,11 +388,13 @@
             };
         }
         else {
+            // 거듭제곱 포함 (lv4=정수 거듭제곱, lv8=분수 거듭제곱)
             const exp = getInt(2, 3);
             let base;
             if (lv === 4) {
                 base = { n: getNonZero(-3, 3), d: 1 };
             } else {
+                // lv === 8: 분수 거듭제곱
                 const d = currentDenomPool[getInt(0, currentDenomPool.length - 1)];
                 base = simplify(getNonZero(-3, 3), d);
             }
@@ -568,13 +574,18 @@
         
         if (isCorrect) {
             const timeTaken = (Date.now() - state.startTime) / 1000;
-            let point = (state.level * 10) * (1 + Math.floor(state.streak / 10) * 0.1);
-            if (timeTaken <= state.level * 5) point *= 1.2;
-            state.score += Math.round(point);
+            const basePoint = state.level * 10;
+            const streakModifier = 1 + Math.floor(state.streak / 10) * 0.1;
+            const baseTime = state.level * 10; // 기준 시간: 레벨 × 10초
+            const isTimeBonus = timeTaken <= baseTime;
+            const timeModifier = isTimeBonus ? 1.2 : 1.0;
+            const finalPoint = Math.round(basePoint * streakModifier * timeModifier);
+            state.score += finalPoint;
             state.streak++; state.lifeStreak++;
             if (state.lifeStreak >= 3) { if (state.lives < 20) state.lives++; state.lifeStreak = 0; }
-            if (state.streak % 5 === 0 && state.level < 12) state.level++;
-            document.getElementById('message').innerHTML = "<span style='color:var(--success)'>정답! ✨</span>";
+            if (state.streak % 5 === 0 && state.level < 8) state.level++;
+            const timeMsg = isTimeBonus ? " (시간보너스!)" : "";
+            document.getElementById('message').innerHTML = `<span style='color:var(--success)'>정답! +${finalPoint}${timeMsg} ✨</span>`;
         } else {
             state.lives -= state.level;
             state.streak = 0; state.lifeStreak = 0;
